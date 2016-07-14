@@ -61,8 +61,8 @@ print("Extracting pixel data from %d frame images" % numberOfFrameImages)
 
 lightRenderData = []
 
-for frameNumber in xrange(numberOfFrameImages):
-	frameImage = Image.open("%s/frame%06d.png" % (FRAMES_TEMP_PATH, frameNumber + 1))
+for frameNumber in xrange(1, numberOfFrameImages+1):
+	frameImage = Image.open("%s/frame%06d.png" % (FRAMES_TEMP_PATH, frameNumber))
 	framePixels = frameImage.load()
 
 	for lightIndex, lightPosition in enumerate(LIGHT_POSITIONS, 1):
