@@ -1,4 +1,4 @@
-import os, subprocess, math
+import os, subprocess, math, glob
 from LightPosition import LightPosition
 from PIL import Image
 
@@ -16,8 +16,7 @@ LIGHT_POSITIONS = [
 
 # Cleanup at start, so I can leave my temp files at the end for debugging
 print("Clearing frames temp folder")
-for tempFile in os.listdir(FRAMES_TEMP_PATH):
-	tempFilePath = os.path.join(FRAMES_TEMP_PATH, tempFile)
+for tempFilePath in glob.glob("%s/*" % FRAMES_TEMP_PATH):
 	if os.path.isfile(tempFilePath):
 		os.unlink(tempFilePath)
 
