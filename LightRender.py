@@ -25,7 +25,7 @@ print("Getting video duration")
 cmd = [
 	"ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", 
 	"default=noprint_wrappers=1:nokey=1", "%s/%s" % (RESOURCES_PATH, VIDEO_SOURCE_FILE)]
-ffProbeSubprocess = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+ffProbeSubprocess = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 ffProbeOutput, ffProbeError = ffProbeSubprocess.communicate()
 videoDuration = float(ffProbeOutput)
 print("Video duration is %fs" % videoDuration)
@@ -33,7 +33,7 @@ print("Video duration is %fs" % videoDuration)
 cmd = [
 	"ffprobe", "-v", "error", "-show_entries", "stream=width", "-of", 
 	"default=noprint_wrappers=1:nokey=1", "%s/%s" % (RESOURCES_PATH, VIDEO_SOURCE_FILE)]
-ffProbeSubprocess = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+ffProbeSubprocess = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 ffProbeOutput, ffProbeError = ffProbeSubprocess.communicate()
 videoWidth = int(ffProbeOutput)
 print("Video width is %dpx" % videoWidth)
@@ -41,7 +41,7 @@ print("Video width is %dpx" % videoWidth)
 cmd = [
 	"ffprobe", "-v", "error", "-show_entries", "stream=height", "-of", 
 	"default=noprint_wrappers=1:nokey=1", "%s/%s" % (RESOURCES_PATH, VIDEO_SOURCE_FILE)]
-ffProbeSubprocess = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+ffProbeSubprocess = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 ffProbeOutput, ffProbeError = ffProbeSubprocess.communicate()
 videoHeight = int(ffProbeOutput)
 print("Video height is %dpx" % videoHeight)
@@ -51,7 +51,7 @@ print("Extracting frame images")
 cmd = [
 	"ffmpeg", "-i", "%s/%s" % (RESOURCES_PATH, VIDEO_SOURCE_FILE), "-vf", "fps=%d" % FPS, 
 	"%s/frame%%06d.png" % FRAMES_TEMP_PATH]
-ffMpegSubprocess = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+ffMpegSubprocess = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 ffMpegOutput, ffMpegError = ffMpegSubprocess.communicate()
 print("Frame images extracted")
 
