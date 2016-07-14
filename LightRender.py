@@ -8,12 +8,11 @@ FRAMES_TEMP_PATH = "%s/Frames" % RESOURCES_PATH
 VIDEO_SOURCE_FILE = "video.mp4"
 RENDER_OUTPUT_FILE = "video.bin"
 
-lightIndex = 0
 LIGHT_POSITIONS = [
-	LightPosition(++lightIndex, 99, 99), 
-	LightPosition(++lightIndex, 639, 359), 
-	LightPosition(++lightIndex, 999, 359), 
-	LightPosition(++lightIndex, 1, 999)]
+	LightPosition(99, 99), 
+	LightPosition(639, 359), 
+	LightPosition(999, 359), 
+	LightPosition(1, 999)]
 
 # Cleanup at start, so I can leave my temp files at the end for debugging
 print("Clearing frames temp folder")
@@ -67,7 +66,7 @@ for frameNumber in xrange(numberOfFrameImages):
 	frameImage = Image.open("%s/frame%06d.png" % (FRAMES_TEMP_PATH, frameNumber + 1))
 	framePixels = frameImage.load()
 
-	for lightPosition in LIGHT_POSITIONS:
+	for lightIndex, lightPosition in enumerate(LIGHT_POSITIONS, 1):
 		lightPixel = framePixels[
 			lightPosition.GetRelativeX(videoWidth), lightPosition.GetRelativeY(videoHeight)]
 
@@ -77,7 +76,7 @@ for frameNumber in xrange(numberOfFrameImages):
 
 		print(
 			"Frame %d/%d, Light %d/%d is (%d, %d, %d)" % (
-				frameNumber, numberOfFrameImages, lightPosition.index, 
+				frameNumber, numberOfFrameImages, lightIndex, 
 				len(LIGHT_POSITIONS), lightR, lightG, lightB))
 
 		lightRenderData.append(lightR)

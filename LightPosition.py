@@ -2,8 +2,7 @@ class LightPosition:
 	POSITION_GRID_WIDTH = 1000
 	POSITION_GRID_HEIGHT = 1000
 
-	def __init__(self, index, x, y):
-		self.index = index
+	def __init__(self, x, y):
 		self.x = x
 		self.y = y
 
