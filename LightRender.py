@@ -8,11 +8,14 @@ FRAMES_TEMP_PATH = "%s/Frames" % RESOURCES_PATH
 VIDEO_SOURCE_FILE = "video.mp4"
 RENDER_OUTPUT_FILE = "video.bin"
 
-LIGHT_POSITIONS = [
-	LightPosition(99, 99), 
-	LightPosition(639, 359), 
-	LightPosition(999, 359), 
-	LightPosition(1, 999)]
+LIGHT_POSITIONS = []
+
+# Lights are on a fixed grid, so we can compute their theoretical positions
+print("Calculating light positions")
+for xAxisGridCell in xrange(0, 10):
+	for yAxisGridCell in xrange(0, 10):
+		LIGHT_POSITIONS.append(LightPosition((xAxisGridCell * 100) + 25, (yAxisGridCell * 100) + 75))
+		LIGHT_POSITIONS.append(LightPosition((xAxisGridCell * 100) + 75, (yAxisGridCell * 100) + 25))
 
 # Cleanup at start, so I can leave my temp files at the end for debugging
 print("Clearing frames temp folder")
@@ -61,7 +64,7 @@ print("Extracting pixel data from %d frame images" % numberOfFrameImages)
 
 lightRenderData = []
 
-for frameNumber in xrange(1, numberOfFrameImages+1):
+for frameNumber in xrange(1, numberOfFrameImages + 1):
 	frameImage = Image.open("%s/frame%06d.png" % (FRAMES_TEMP_PATH, frameNumber))
 	framePixels = frameImage.load()
 
