@@ -14,9 +14,24 @@ LIGHT_POSITIONS = []
 print("Calculating light positions")
 for xAxisGridCell in xrange(0, 10):
 	for yAxisGridCell in xrange(0, 10):
-		LIGHT_POSITIONS.append(LightPosition((xAxisGridCell * 100) + 25, (yAxisGridCell * 100) + 75))
-		LIGHT_POSITIONS.append(LightPosition((xAxisGridCell * 100) + 75, (yAxisGridCell * 100) + 25))
+		xAxisCoordinate1 = (xAxisGridCell * 100) + 75
+		xAxisCoordinate2 = (xAxisGridCell * 100) + 25
 
+		yAxisCoordinate1 = (yAxisGridCell * 100) + 25
+		yAxisCoordinate2 = (yAxisGridCell * 100) + 75
+
+		# daisy chaining reversal on opposite rows
+		if (xAxisGridCell % 2 == 1):
+			temp = xAxisCoordinate1
+			xAxisCoordinate1 = xAxisCoordinate2
+			xAxisCoordinate2 = temp
+
+			yAxisCoordinate1 = 1000 - yAxisCoordinate1
+			yAxisCoordinate2 = 1000 - yAxisCoordinate2
+
+		LIGHT_POSITIONS.append(LightPosition(xAxisCoordinate1, yAxisCoordinate1))
+		LIGHT_POSITIONS.append(LightPosition(xAxisCoordinate2, yAxisCoordinate2))
+		
 # Cleanup at start, so I can leave my temp files at the end for debugging
 print("Clearing frames temp folder")
 for tempFilePath in glob.glob("%s/*" % FRAMES_TEMP_PATH):
