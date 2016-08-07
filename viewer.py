@@ -1,6 +1,7 @@
 import sys
 import pygame
 import pygame.locals
+import pygame.time
 pygame.init()
 size = width, height = 575, 575
 
@@ -50,7 +51,7 @@ import struct
 
 
 data = open('Resources/video.bin', 'rb')
-import time
+clock = pygame.time.Clock()
 while True:
     for event in pygame.event.get():
         if event.type == pygame.locals.QUIT:
@@ -72,4 +73,4 @@ while True:
             screen.blit(label, pos)
 
     pygame.display.update()
-    time.sleep(0.05)
+    clock.tick(20)
