@@ -74,7 +74,7 @@ ffMpegOutput, ffMpegError = ffMpegSubprocess.communicate()
 print("Frame images extracted")
 
 # Extract color for each light from my images
-numberOfFrameImages = int(math.floor((videoDuration * FPS) + 1))
+numberOfFrameImages = int(math.floor((videoDuration * FPS)))
 print("Extracting pixel data from %d frame images" % numberOfFrameImages)
 
 lightRenderData = []
