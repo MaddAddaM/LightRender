@@ -108,3 +108,5 @@ print("Storing to binary stream file")
 with open("%s/%s" % (RESOURCES_PATH, RENDER_OUTPUT_FILE), "wb") as outputFile:
 	outputFile.write(bytearray(lightRenderData))
 print("Stored rendering to %s" % RENDER_OUTPUT_FILE)
+
+# vim: set ts=8 sw=8 noet:
