@@ -91,10 +91,11 @@ for frameNumber in xrange(1, numberOfFrameImages + 1):
 		lightG = int(lightPixel[1])
 		lightB = int(lightPixel[2])
 
-		print(
-			"Frame %d/%d, Light %d/%d is (%d, %d, %d)" % (
-				frameNumber, numberOfFrameImages, lightIndex, 
-				len(LIGHT_POSITIONS), lightR, lightG, lightB))
+		if __debug__:
+			print(
+				"Frame %d/%d, Light %d/%d is (%d, %d, %d)" % (
+					frameNumber, numberOfFrameImages, lightIndex,
+					len(LIGHT_POSITIONS), lightR, lightG, lightB))
 
 		lightRenderData.append(lightR)
 		lightRenderData.append(lightG)
