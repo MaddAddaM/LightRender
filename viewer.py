@@ -49,7 +49,7 @@ myfont = pygame.font.SysFont("monospace", 15)
 import struct
 
 
-data = open('video.bin', 'rb')
+data = open('Resources/video.bin', 'rb')
 import time
 while True:
     for k, v in positions.items():
