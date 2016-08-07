@@ -26,7 +26,7 @@ for strip_pair in range(5):
     pos_list += list(down_row(2 * strip_pair + 1))
 
 
-positions = {i: v for i, v in enumerate(pos_list)}
+pos = {i: v for i, v in enumerate(pos_list)}
 
 red = (255, 0, 0)
 
@@ -46,26 +46,16 @@ def get_screen_pos(x, y):
 
 myfont = pygame.font.SysFont("monospace", 15)
 
-import struct
+for k, v in pos.items():
+    x, y = v
+    pos = get_screen_pos(x, y)
+    pygame.draw.circle(screen, get_color(k), pos, 10)
 
+    if label_lights:
+        label = myfont.render(str(k), 1, (255, 255, 255))
+        screen.blit(label, pos)
 
-data = open('video.bin', 'rb')
+pygame.display.update()
+
 import time
-while True:
-    for k, v in positions.items():
-        x, y = v
-        pos = get_screen_pos(x, y)
-
-        r = ord(data.read(1))
-        g = ord(data.read(1))
-        b = ord(data.read(1))
-        color = (r,g,b)
-
-        pygame.draw.circle(screen, color, pos, 10)
-
-        if label_lights:
-            label = myfont.render(str(k), 1, (255, 255, 255))
-            screen.blit(label, pos)
-
-    pygame.display.update()
-    time.sleep(0.05)
+time.sleep(10)

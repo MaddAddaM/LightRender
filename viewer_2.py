@@ -1,4 +1,6 @@
 import pygame
+import colorsys
+
 pygame.init()
 size = width, height = 575, 575
 
@@ -30,10 +32,18 @@ positions = {i: v for i, v in enumerate(pos_list)}
 
 red = (255, 0, 0)
 
-def get_color(i):
-    red = 255 * (i / 199.0)
-    green = 0
-    blue = 255 * ((199-i) / 199.0)
+def get_color(x, y, i):
+    # min 0,0
+    # max 9.5, 9.5
+    center_x, center_y = 5, 5
+    d = ((x - center_x) ** 2 + (y - center_y) ** 2) ** 0.5
+    d *= 0.1
+    d += 0.01 * i
+    r, g, b = colorsys.hsv_to_rgb(d, 1, 1)
+
+    red = 255 * r
+    green = 255 * g
+    blue = 255 * b
     c = (int(red), int(green), int(blue))
     return c
 
@@ -46,21 +56,13 @@ def get_screen_pos(x, y):
 
 myfont = pygame.font.SysFont("monospace", 15)
 
-import struct
-
-
-data = open('video.bin', 'rb')
 import time
-while True:
+
+for frame in range(1000):
     for k, v in positions.items():
         x, y = v
         pos = get_screen_pos(x, y)
-
-        r = ord(data.read(1))
-        g = ord(data.read(1))
-        b = ord(data.read(1))
-        color = (r,g,b)
-
+        color = get_color(x, y, frame)
         pygame.draw.circle(screen, color, pos, 10)
 
         if label_lights:
@@ -69,3 +71,4 @@ while True:
 
     pygame.display.update()
     time.sleep(0.05)
+
