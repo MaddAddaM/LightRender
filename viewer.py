@@ -30,8 +30,6 @@ for strip_pair in range(5):
 
 positions = {i: v for i, v in enumerate(pos_list)}
 
-red = (255, 0, 0)
-
 def get_color(i):
     red = 255 * (i / 199.0)
     green = 0
