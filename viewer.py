@@ -66,7 +66,7 @@ while True:
         b = ord(data.read(1))
         color = (r,g,b)
 
-        pygame.draw.circle(screen, color, pos, 10)
+        pygame.draw.circle(screen, color, pos, 17)
 
         if label_lights:
             label = myfont.render(str(k), 1, (255, 255, 255))
