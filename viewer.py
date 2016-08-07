@@ -1,4 +1,6 @@
+import sys
 import pygame
+import pygame.locals
 pygame.init()
 size = width, height = 575, 575
 
@@ -52,6 +54,10 @@ import struct
 data = open('Resources/video.bin', 'rb')
 import time
 while True:
+    for event in pygame.event.get():
+        if event.type == pygame.locals.QUIT:
+            sys.exit(0)
+
     for k, v in positions.items():
         x, y = v
         pos = get_screen_pos(x, y)
