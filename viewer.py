@@ -1,4 +1,7 @@
+import sys
 import pygame
+import pygame.locals
+import pygame.time
 pygame.init()
 size = width, height = 575, 575
 
@@ -28,8 +31,6 @@ for strip_pair in range(5):
 
 positions = {i: v for i, v in enumerate(pos_list)}
 
-red = (255, 0, 0)
-
 def get_color(i):
     red = 255 * (i / 199.0)
     green = 0
@@ -49,9 +50,13 @@ myfont = pygame.font.SysFont("monospace", 15)
 import struct
 
 
-data = open('video.bin', 'rb')
-import time
+data = open('Resources/video.bin', 'rb')
+clock = pygame.time.Clock()
 while True:
+    for event in pygame.event.get():
+        if event.type == pygame.locals.QUIT:
+            sys.exit(0)
+
     for k, v in positions.items():
         x, y = v
         pos = get_screen_pos(x, y)
@@ -61,11 +66,11 @@ while True:
         b = ord(data.read(1))
         color = (r,g,b)
 
-        pygame.draw.circle(screen, color, pos, 10)
+        pygame.draw.circle(screen, color, pos, 17)
 
         if label_lights:
             label = myfont.render(str(k), 1, (255, 255, 255))
             screen.blit(label, pos)
 
     pygame.display.update()
-    time.sleep(0.05)
+    clock.tick(20)
