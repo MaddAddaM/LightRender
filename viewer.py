@@ -6,7 +6,7 @@ import pygame.locals
 import pygame.time
 
 
-from Lights import POSITIONS
+from constants import CARTESIAN_COORDS
 
 size = width, height = 575, 575
 
@@ -35,7 +35,7 @@ def run(fin, number_lights=False):
 
     screen = pygame.display.set_mode(size)
 
-    positions = {i: v for i, v in enumerate(POSITIONS)}
+    positions = {i: v for i, v in enumerate(CARTESIAN_COORDS)}
 
     myfont = pygame.font.SysFont("monospace", 15)
 
@@ -76,16 +76,15 @@ if __name__ == "__main__":
                         help='Label the lights with their index')
     parser.add_argument('file', nargs='?',
                         type=argparse.FileType('rb'),
-                        default='Resources/video.bin',
                         help='The file to view.  You can also pipe the file to the process.')
 
     args = parser.parse_args()
 
-    if not os.isatty(0):
-        fin = sys.stdin
-        print("reading from std in")
-    else:
+    if args.file:
         fin = args.file
-        print("reading from file argument, or default file path")
+        print("reading from " + args.file.name)
+    else:
+        fin = sys.stdin
+        print("reading from stdin")
 
     run(fin, number_lights=args.number_lights)

@@ -1,4 +1,4 @@
-from Lights import POSITIONS
+from constants import CARTESIAN_COORDS
 import colorsys
 import sys
 
@@ -34,7 +34,7 @@ class Pattern(object):
 p = Pattern()
 
 for frame in range(1000):
-    for x, y in POSITIONS:
+    for x, y in CARTESIAN_COORDS:
         color = p.get_color(x, y)
         r, g, b = color
         sys.stdout.write(chr(r))
