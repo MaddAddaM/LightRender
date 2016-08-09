@@ -8,30 +8,17 @@ FRAMES_TEMP_PATH = "%s/Frames" % RESOURCES_PATH
 VIDEO_SOURCE_FILE = "video.mp4"
 RENDER_OUTPUT_FILE = "video.bin"
 
-LIGHT_POSITIONS = []
+# 20 lights up, then 20 lights back down at the same heights, 5 times.
+ROWS = (range(20)[::] + range(20)[::-1]) * 5
+
+# 20 lights switching between cols 1 and 2, then 20 switching between 4 and 3,
+# repeated 5 times offset by 4 columns per repetition.
+COLS = [v + 4 * i for i in range(5) for v in [j % 2 for j in range(20)] + [3 - j % 2 for j in range(20)]]
 
 # Lights are on a fixed grid, so we can compute their theoretical positions
-print("Calculating light positions")
-for xAxisGridCell in xrange(0, 10):
-	for yAxisGridCell in xrange(0, 10):
-		xAxisCoordinate1 = (xAxisGridCell * 100) + 75
-		xAxisCoordinate2 = (xAxisGridCell * 100) + 25
+# NOTE: ROWS is numbered from bottom to top, but PIL starts in the top left.
+LIGHT_POSITIONS = [LightPosition(c*50+25, 1000-(r*50+25)) for r, c in zip(ROWS, COLS)]
 
-		yAxisCoordinate1 = (yAxisGridCell * 100) + 25
-		yAxisCoordinate2 = (yAxisGridCell * 100) + 75
-
-		# daisy chaining reversal on opposite rows
-		if (xAxisGridCell % 2 == 1):
-			temp = xAxisCoordinate1
-			xAxisCoordinate1 = xAxisCoordinate2
-			xAxisCoordinate2 = temp
-
-			yAxisCoordinate1 = 1000 - yAxisCoordinate1
-			yAxisCoordinate2 = 1000 - yAxisCoordinate2
-
-		LIGHT_POSITIONS.append(LightPosition(xAxisCoordinate1, yAxisCoordinate1))
-		LIGHT_POSITIONS.append(LightPosition(xAxisCoordinate2, yAxisCoordinate2))
-		
 # Cleanup at start, so I can leave my temp files at the end for debugging
 print("Clearing frames temp folder")
 for tempFilePath in glob.glob("%s/*" % FRAMES_TEMP_PATH):
@@ -74,7 +61,7 @@ ffMpegOutput, ffMpegError = ffMpegSubprocess.communicate()
 print("Frame images extracted")
 
 # Extract color for each light from my images
-numberOfFrameImages = int(math.floor((videoDuration * FPS) + 1))
+numberOfFrameImages = int(math.floor((videoDuration * FPS)))
 print("Extracting pixel data from %d frame images" % numberOfFrameImages)
 
 lightRenderData = []
@@ -91,10 +78,11 @@ for frameNumber in xrange(1, numberOfFrameImages + 1):
 		lightG = int(lightPixel[1])
 		lightB = int(lightPixel[2])
 
-		print(
-			"Frame %d/%d, Light %d/%d is (%d, %d, %d)" % (
-				frameNumber, numberOfFrameImages, lightIndex, 
-				len(LIGHT_POSITIONS), lightR, lightG, lightB))
+		if __debug__:
+			print(
+				"Frame %d/%d, Light %d/%d is (%d, %d, %d)" % (
+					frameNumber, numberOfFrameImages, lightIndex,
+					len(LIGHT_POSITIONS), lightR, lightG, lightB))
 
 		lightRenderData.append(lightR)
 		lightRenderData.append(lightG)
@@ -107,3 +95,5 @@ print("Storing to binary stream file")
 with open("%s/%s" % (RESOURCES_PATH, RENDER_OUTPUT_FILE), "wb") as outputFile:
 	outputFile.write(bytearray(lightRenderData))
 print("Stored rendering to %s" % RENDER_OUTPUT_FILE)
+
+# vim: set ts=8 sw=8 noet:
