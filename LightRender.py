@@ -1,5 +1,6 @@
 import os, subprocess, math, glob
 from LightPosition import LightPosition
+from constants import CARTESIAN_COORDS as COORDS
 from PIL import Image
 
 FPS = 20
@@ -8,16 +9,9 @@ FRAMES_TEMP_PATH = "%s/Frames" % RESOURCES_PATH
 VIDEO_SOURCE_FILE = "video.mp4"
 RENDER_OUTPUT_FILE = "video.bin"
 
-# 20 lights up, then 20 lights back down at the same heights, 5 times.
-ROWS = (range(20)[::] + range(20)[::-1]) * 5
-
-# 20 lights switching between cols 1 and 2, then 20 switching between 4 and 3,
-# repeated 5 times offset by 4 columns per repetition.
-COLS = [v + 4 * i for i in range(5) for v in [j % 2 for j in range(20)] + [3 - j % 2 for j in range(20)]]
-
 # Lights are on a fixed grid, so we can compute their theoretical positions
 # NOTE: ROWS is numbered from bottom to top, but PIL starts in the top left.
-LIGHT_POSITIONS = [LightPosition(c*50+25, 1000-(r*50+25)) for r, c in zip(ROWS, COLS)]
+LIGHT_POSITIONS = [LightPosition(c*50+25, 1000-(r*50+25)) for c, r in COORDS]
 
 # Cleanup at start, so I can leave my temp files at the end for debugging
 print("Clearing frames temp folder")
