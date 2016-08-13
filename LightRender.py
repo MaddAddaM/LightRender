@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os, subprocess, math, glob
 from LightPosition import LightPosition
 from constants import CARTESIAN_COORDS as COORDS

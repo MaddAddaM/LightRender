@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from constants import CARTESIAN_COORDS
 import colorsys
 import sys
