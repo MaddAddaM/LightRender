@@ -56,11 +56,18 @@ def run(fin, number_lights=False):
     framenum = 0
 
     clock = pygame.time.Clock()
+    paused = False
     while True:
         # did the user close the window?
         for event in pygame.event.get():
             if event.type == pygame.locals.QUIT:
                 sys.exit(0)
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    paused = not paused
+
+        if paused:
+            continue
 
         skip = 0
         pressed = pygame.key.get_pressed()
