@@ -4,12 +4,16 @@ import sys
 import os
 import pygame
 import pygame.locals
+import pygame.key
 import pygame.time
 
 
 from constants import CARTESIAN_COORDS
 
+NUM_PIXELS = len(CARTESIAN_COORDS)
+BYTES_PER_FRAME = 3 * NUM_PIXELS
 FPS = 20
+FRAMES_PER_SKIP = 5 * FPS
 
 CANVAS = pygame.Rect((0, 0), (575, 575))
 STATUSBAR = pygame.Rect(CANVAS.bottomleft, (CANVAS.width, 20))
@@ -57,6 +61,28 @@ def run(fin, number_lights=False):
         for event in pygame.event.get():
             if event.type == pygame.locals.QUIT:
                 sys.exit(0)
+
+        skip = 0
+        pressed = pygame.key.get_pressed()
+        if pressed[pygame.K_RIGHT]:
+            skip += 1
+        if pressed[pygame.K_LEFT]:
+            skip -= 1
+
+        if skip < 0:
+            # seeking backwards from current offset
+            for i in range(FRAMES_PER_SKIP):
+                try:
+                    fin.seek(skip * BYTES_PER_FRAME, 1)
+                    framenum += skip
+                except IOError:
+                    # No error at BOF, or if stream isn't seekable
+                    pass
+        elif skip > 0:
+            # consume frames from the stream. Works even if not seekable.
+            for i in range(FRAMES_PER_SKIP):
+                fin.read(skip * BYTES_PER_FRAME)
+                framenum += 1
 
         # update all the lights
         for i, pos in positions.items():
