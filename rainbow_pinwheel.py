@@ -56,7 +56,7 @@ class Pattern(object):
 
 p = Pattern()
 
-for frame in range(1000):
+for frame in range(6000):
     for x, y in CARTESIAN_COORDS:
         color = p.get_color(x, y)
         r, g, b = color
