@@ -5,25 +5,30 @@ import sys
 import math
 
 class Pattern(object):
-    center_x, center_y = 15, 10
+    center_x, center_y = 10, 10
 
-    mov_x, mov_y = -1, -1
+    # mov_x, mov_y = 1, 1
     i = 0
 
     arms = 4
 
     def next_frame(self):
         self.i += 1
-        self.center_x += self.mov_x * 0.1
-        self.center_y += self.mov_y * 0.1
-
-        if self.center_x < 0 or self.center_x > 19:
-            self.mov_x *= -1
-
-        if self.center_y < 0 or self.center_y > 19:
-            self.mov_y *= -1
+        # self.center_x += self.mov_x * 0.3
+        # self.center_y += self.mov_y * 0.3
+        #
+        # if self.center_x < 0 or self.center_x > 19:
+        #     self.mov_x *= -1
+        #
+        # if self.center_y < 0 or self.center_y > 19:
+        #     self.mov_y *= -1
 
     def get_color(self, x, y):
+
+        # mirror the image along the vertical center line
+        if x > 10:
+            return self.get_color(20-x, y)
+
         distance = ((x - self.center_x) ** 2 + (y - self.center_y) ** 2) ** 0.5
 
         # make the center white, it's all garbled in the middle anyways
@@ -44,7 +49,9 @@ class Pattern(object):
         h -= 0.025 * self.i
 
         # bend the arms for a pin wheel effect
-        h += 0.05 * distance
+
+        bend_ratio = math.sin(self.i/100.0)
+        h += 0.08* bend_ratio * distance
 
         r, g, b = colorsys.hsv_to_rgb(h%1, 1, 1)
 
