@@ -2,18 +2,22 @@
 #include <SdFat.h>
 #include <FAB_LED.h>
 
-#define DEBUG
+//#define DEBUG
 
-// ports used:
-// digital 4 - SD card chip select
-// digital 6 - strip of 200 APA106 LEDs
-// digital 11 - SPI (SD card DI)
-// digital 12 - SPI (SD card DO)
-// digital 13 - SPI (SD card CLK)
-// analog 0 - RF remote button D
-// analog 1 - RF remote button C
-// analog 2 - RF remote button B
-// analog 3 - RF remote button A
+enum {
+  SD_CHIP_SELECT = 4,
+  APA106_DATA = 6,
+  SHIFT_REGISTER_CLOCK = 8,
+  SHIFT_REGISTER_LATCH = 9,
+  SHIFT_REGISTER_DATA = 10,
+  SD_MISO = 11,
+  SD_MOSI = 12,
+  SD_CLK = 13,
+  RF_REMOTE_BUTTON_D = A0,
+  RF_REMOTE_BUTTON_C = A1,
+  RF_REMOTE_BUTTON_B = A2,
+  RF_REMOTE_BUTTON_A = A3,
+};
 
 enum class Pressed : uint8_t {
   none = 0,
@@ -39,6 +43,7 @@ enum class Mode : uint8_t {
   COLOR_CEILING,
   COLOR_FLOOR,
   VIDEO_PLAYBACK,
+  CYCLE_BULBS,
   MACRO,
   MISC,
   ROOT_DIR_ON_RELEASE,
@@ -71,11 +76,14 @@ struct PendingOperations
   uint8_t reset_settings;
 
   uint8_t toggle_frame_len;
+
+  uint8_t cycle_bulbs;
 };
 
 volatile PendingOperations GlobalPendingOperations;
 
-apa106<D, 6>   LEDstrip;
+apa106<D, 6> LEDstrip; // This actually refers to pin 6 of the AVR D port, but
+                       // that happens to map to the Arduino D6 pin.
 rgb frame[200];
 uint8_t brightness = 255;
 uint8_t negative;
@@ -137,29 +145,35 @@ const int TWINKLE_AMOUNT = 2;
 // File system object.
 SdFat sd;
 
-FatFile root_dir;
-File root_file;
+struct SdContext {
+  FatFile dir;
+  File file;
+  uint8_t index;
+};
 
-FatFile rainbows_dir;
-File rainbows_file;
+SdContext RootContext;
+SdContext RainbowContext;
+SdContext *Context = &RootContext;
 
-FatFile *curr_dir = &root_dir;
-File *infile = &root_file;
+#define infile (&(Context->file))
+#define curr_dir (&(Context->dir))
+#define curr_index (Context->index)
 
 unsigned long startMillis;
 
 // Serial streams
 ArduinoOutStream cout(Serial);
 
-// SD card chip select
-const int chipSelect = 4;
-
 void setup()
 {
-  pinMode(A0, INPUT_PULLUP);
-  pinMode(A1, INPUT_PULLUP);
-  pinMode(A2, INPUT_PULLUP);
-  pinMode(A3, INPUT_PULLUP);
+  pinMode(RF_REMOTE_BUTTON_D, INPUT_PULLUP);
+  pinMode(RF_REMOTE_BUTTON_C, INPUT_PULLUP);
+  pinMode(RF_REMOTE_BUTTON_B, INPUT_PULLUP);
+  pinMode(RF_REMOTE_BUTTON_A, INPUT_PULLUP);
+
+  pinMode(SHIFT_REGISTER_LATCH, OUTPUT);
+  pinMode(SHIFT_REGISTER_CLOCK, OUTPUT);
+  pinMode(SHIFT_REGISTER_DATA, OUTPUT);
 
   drawSplashScreen(frame);
   LEDstrip.sendPixels(sizeof(frame) / sizeof(*frame), frame);
@@ -172,7 +186,7 @@ void setup()
   }
 
   cout << F("\nInitializing SD.\n");
-  if (!sd.begin(chipSelect, SPI_FULL_SPEED)) {
+  if (!sd.begin(SD_CHIP_SELECT, SPI_FULL_SPEED)) {
     if (sd.card()->errorCode()) {
       cout << F("SD initialization failed.\n");
       cout << F("errorCode: ") << hex << showbase;
@@ -199,19 +213,19 @@ void setup()
 
   sd.ls();
 
-  root_dir.openRoot(&sd);
+  RootContext.dir.openRoot(&sd);
   char rainbows_dir_name[9];
   strcpy_P(rainbows_dir_name, PSTR("rainbows"));
-  rainbows_dir.open(&root_dir, rainbows_dir_name, O_READ);
+  RainbowContext.dir.open(&RootContext.dir, rainbows_dir_name, O_READ);
   Serial.println(F("rainbows:"));
-  rainbows_dir.ls();
+  RainbowContext.dir.ls();
 
   nextFile();
   startMillis = millis();
 
-  PCMSK1 = B1111; // Enable interrupts for inputs A0, A1, A2, A3
-  PCIFR  |= bit(PCIF1);   // clear any outstanding interrupts
-  PCICR  |= bit(PCIE1);   // enable pin change interrupts for D8 to D13
+  PCIFR |= bit(PCIF1); // clear any pending port C (A0-A5) interrupts
+  PCMSK1 = B1111; // monitor pins A0 through A3 for changes, but not A4 or A5
+  PCICR |= bit(PCIE1); // begin interrupting for pin changes on port C (A0-A5)
 }
 
 void printPendingOperations(PendingOperations & ops)
@@ -235,6 +249,10 @@ void printPendingOperations(PendingOperations & ops)
   if (ops.toggle_negative)     Serial.print(F("\ntoggle_negative"));
   if (ops.reset_settings)      Serial.print(F("\nreset_settings"));
   if (ops.toggle_frame_len)    Serial.print(F("\ntoggle_frame_len"));
+  if (ops.cycle_bulbs & 64)    Serial.print(F("\ncycle bulb 4"));
+  if (ops.cycle_bulbs & 16)    Serial.print(F("\ncycle bulb 3"));
+  if (ops.cycle_bulbs & 4)     Serial.print(F("\ncycle bulb 2"));
+  if (ops.cycle_bulbs & 1)     Serial.print(F("\ncycle bulb 1"));
 }
 
 void printSettings()
@@ -284,6 +302,22 @@ void twinkleMode(ColorIntensity & high)
   high.ceil = ColorIntensity::MAX;
 }
 
+void cycleBulbs(uint8_t which_bulbs)
+{
+  for (int bulb = 64; bulb > 0; bulb /= 4) {
+    if (which_bulbs & bulb) {
+      uint8_t start = curr_index - 1;
+      // Cycle until the first video such that:
+      // 1) its 0-based index is a multiple of this bulb val
+      // 2) its index is not more than this bulb val from the starting index
+      do {
+        nextFile();
+      } while ((curr_index - 1) % bulb != 0
+               || (bulb < 64 && (curr_index-1) / (bulb*4) != start / (bulb*4)));
+    }
+  }
+}
+
 void performPendingOperations(PendingOperations & ops)
 {
 #ifdef DEBUG
@@ -309,6 +343,7 @@ void performPendingOperations(PendingOperations & ops)
   if (ops.toggle_negative)     negative = !negative;
   if (ops.reset_settings)      resetDefaultSettings();
   if (ops.toggle_frame_len)    frame_len = (frame_len == MAX_FRAME_LEN ? MIN_FRAME_LEN : frame_len+1);
+  if (ops.cycle_bulbs)         cycleBulbs(ops.cycle_bulbs);
 
 #ifdef DEBUG
   if (    ops.cycle_brightness
@@ -329,7 +364,8 @@ void performPendingOperations(PendingOperations & ops)
        || ops.skip_forward
        || ops.toggle_negative
        || ops.reset_settings
-       || ops.toggle_frame_len)
+       || ops.toggle_frame_len
+       || ops.cycle_bulbs)
   {
     printSettings();
   }
@@ -350,6 +386,14 @@ ISR(PCINT1_vect) // handle pin change interrupt for A0 to A5
         } break;
 
         case Pressed::b: {
+          GlobalPendingOperations.next_video = 1;
+        } break;
+
+        case Pressed::c: {
+          CurrentMode = Mode::MACRO;
+        } break;
+
+        case Pressed::d: {
           GlobalPendingOperations.skip_forward = 1;
         } break;
 
@@ -357,31 +401,27 @@ ISR(PCINT1_vect) // handle pin change interrupt for A0 to A5
           CurrentMode = Mode::COLOR_CEILING;
         } break;
 
-        case Pressed::cd: {
-          CurrentMode = Mode::COLOR_FLOOR;
+        case Pressed::ac: {
+          CurrentMode = Mode::CYCLE_BULBS;
         } break;
 
         case Pressed::ad: {
           CurrentMode = Mode::VIDEO_PLAYBACK;
         } break;
 
-        case Pressed::c: {
-          CurrentMode = Mode::MACRO;
-        } break;
-
         case Pressed::bc: {
           CurrentMode = Mode::MISC;
         } break;
 
-        case Pressed::abcd: {
-          GlobalPendingOperations.next_video = 1;
+        case Pressed::cd: {
+          CurrentMode = Mode::COLOR_FLOOR;
         } break;
       }
     } break;
 
     case Mode::COLOR_CEILING: {
       switch (button_states) {
-        case Pressed::d: {
+        case Pressed::abcd: {
           CurrentMode = Mode::NORMAL;
         } break;
 
@@ -402,7 +442,7 @@ ISR(PCINT1_vect) // handle pin change interrupt for A0 to A5
 
     case Mode::COLOR_FLOOR: {
       switch (button_states) {
-        case Pressed::d: {
+        case Pressed::abcd: {
           CurrentMode = Mode::NORMAL;
         } break;
 
@@ -422,7 +462,7 @@ ISR(PCINT1_vect) // handle pin change interrupt for A0 to A5
 
     case Mode::VIDEO_PLAYBACK: {
       switch (button_states) {
-        case Pressed::d: {
+        case Pressed::abcd: {
           CurrentMode = Mode::NORMAL;
         } break;
 
@@ -438,6 +478,10 @@ ISR(PCINT1_vect) // handle pin change interrupt for A0 to A5
           GlobalPendingOperations.toggle_pause = 1;
         } break;
 
+        case Pressed::d: {
+          GlobalPendingOperations.skip_forward = 1;
+        } break;
+
         case Pressed::ac: {
           GlobalPendingOperations.prev_video = 1;
         } break;
@@ -445,16 +489,12 @@ ISR(PCINT1_vect) // handle pin change interrupt for A0 to A5
         case Pressed::bd: {
           GlobalPendingOperations.next_video = 1;
         } break;
-
-        case Pressed::abcd: {
-          GlobalPendingOperations.skip_forward = 1;
-        } break;
       }
     } break;
 
     case Mode::MISC: {
       switch (button_states) {
-        case Pressed::d: {
+        case Pressed::abcd: {
           CurrentMode = Mode::NORMAL;
         } break;
 
@@ -488,6 +528,12 @@ ISR(PCINT1_vect) // handle pin change interrupt for A0 to A5
       static Pressed MacroButtons[3];
       static int8_t MacroButtonCount = 0;
 
+      if (button_states == Pressed::abcd) {
+        MacroButtonCount = 0;
+        CurrentMode = Mode::NORMAL;
+        break;
+      }
+
       MacroButtons[MacroButtonCount++] = button_states;
       if ((MacroButtonCount %= 3) != 0) {
         break;
@@ -502,17 +548,13 @@ ISR(PCINT1_vect) // handle pin change interrupt for A0 to A5
               switch (MacroButtons[2]) {
                 case Pressed::a: {
                   // caa - permanent switch to root directory
-                  if (root_dir.isOpen()) {
-                    curr_dir = &root_dir;
-                    infile = &root_file;
-                  }
+                  Context = &RootContext;
                 } break;
 
                 case Pressed::b: {
                   // cab - permanent switch to rainbows directory
-                  if (rainbows_dir.isOpen()) {
-                    curr_dir = &rainbows_dir;
-                    infile = &rainbows_file;
+                  if (RainbowContext.dir.isOpen()) {
+                    Context = &RainbowContext;
                   }
                 } break;
               }
@@ -535,9 +577,8 @@ ISR(PCINT1_vect) // handle pin change interrupt for A0 to A5
               switch (MacroButtons[2]) {
                 case Pressed::b: {
                   // dab - temporary switch to rainbows directory
-                  if (rainbows_dir.isOpen()) {
-                    curr_dir = &rainbows_dir;
-                    infile = &rainbows_file;
+                  if (RainbowContext.dir.isOpen()) {
+                    Context = &RainbowContext;
                     CurrentMode = Mode::ROOT_DIR_ON_RELEASE;
                   }
                 } break;
@@ -548,14 +589,52 @@ ISR(PCINT1_vect) // handle pin change interrupt for A0 to A5
       }
     } break;
 
+    case Mode::CYCLE_BULBS: {
+      switch (button_states) {
+        case Pressed::abcd: {
+          CurrentMode = Mode::NORMAL;
+        } break;
+
+        case Pressed::a: {
+          GlobalPendingOperations.cycle_bulbs |= 64;
+        } break;
+
+        case Pressed::b: {
+          GlobalPendingOperations.cycle_bulbs |= 16;
+        } break;
+
+        case Pressed::c: {
+          GlobalPendingOperations.cycle_bulbs |= 4;
+        } break;
+
+        case Pressed::d: {
+          GlobalPendingOperations.cycle_bulbs |= 1;
+        } break;
+      }
+    } break;
+
     case Mode::ROOT_DIR_ON_RELEASE: {
       if (button_states == Pressed::none) {
-        curr_dir = &root_dir;
-        infile = &root_file;
+        Context = &RootContext;
         CurrentMode = Mode::NORMAL;
       }
     } break;
   }
+}
+
+void updateVideoIndexDisplay()
+{
+  static uint8_t last_index;
+  if (curr_index == last_index) {
+    return;
+  }
+
+  last_index = curr_index;
+  digitalWrite(SHIFT_REGISTER_LATCH, LOW);
+  shiftOut(SHIFT_REGISTER_DATA, SHIFT_REGISTER_CLOCK, LSBFIRST, last_index - 1);
+  digitalWrite(SHIFT_REGISTER_LATCH, HIGH);
+
+  cout << F("\nUpdated video index display to video number ") << (int16_t)last_index;
 }
 
 void nextFile()
@@ -568,16 +647,18 @@ void nextFile()
     infile->openNext(curr_dir);
     if (infile->isOpen()) {
       if (!infile->isDir() && !infile->isHidden() && !infile->isSystem()) {
+        ++curr_index;
 #ifdef DEBUG
         char buf[13];
         infile->getName(buf, sizeof(buf));
-        cout << F("\nOpened file: ") << buf;
+        cout << F("\nnext opened file ") << (int16_t)curr_index << F(": ") << buf;
 #endif
         return;
       }
       infile->close();
     } else {
       curr_dir->rewind();
+      curr_index = 0;
     }
   }
 }
@@ -594,7 +675,16 @@ void previousFile()
     if (index < 2) {
       // Advance to past last file of directory.
       dir_t dir;
-      while (curr_dir->readDir(&dir) > 0);
+      curr_index = 0;
+      while (curr_dir->readDir(&dir) > 0) {
+        if (dir.name[0] != DIR_NAME_DELETED
+            && !(dir.attributes & (DIR_ATT_VOLUME_ID | DIR_ATT_DIRECTORY
+                                   | DIR_ATT_HIDDEN | DIR_ATT_SYSTEM)))
+        {
+          ++curr_index;
+        }
+      }
+      ++curr_index;
       continue;
     }
     // position to possible previous file location.
@@ -605,10 +695,11 @@ void previousFile()
 
       if (infile->isOpen()) {
         if (!infile->isDir() && !infile->isHidden() && !infile->isSystem()) {
+          --curr_index;
 #ifdef DEBUG
           char buf[13];
           infile->getName(buf, sizeof(buf));
-          cout << F("\nOpened prev file: ") << buf;
+          cout << F("\nprev opened file ") << (int16_t)curr_index << F(": ") << buf;
 #endif
           return;
         }
@@ -650,6 +741,18 @@ void adjustFrameColors()
   }
 }
 
+void handleQueuedCommands()
+{
+  PendingOperations pending_operations_snapshot;
+  noInterrupts();
+  auto globals = &GlobalPendingOperations;
+  memcpy(&pending_operations_snapshot, globals, sizeof(*globals));
+  memset(globals, 0, sizeof(*globals));
+  interrupts();
+
+  performPendingOperations(pending_operations_snapshot);
+}
+
 void loop()
 {
   if (!readFrame()) {
@@ -658,14 +761,8 @@ void loop()
     return;
   }
 
-  PendingOperations pending_operations;
-  noInterrupts();
-  memcpy(&pending_operations, &GlobalPendingOperations, sizeof(pending_operations));
-  memset(&GlobalPendingOperations, 0, sizeof(GlobalPendingOperations));
-  interrupts();
-
-  performPendingOperations(pending_operations);
-
+  handleQueuedCommands();
+  updateVideoIndexDisplay();
   adjustFrameColors();
 
   unsigned long frame_time = 50 + frame_len * 25UL;
